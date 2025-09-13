@@ -82,11 +82,8 @@
         <button id="startBtn">Start Webcam</button>
         <button id="applyStyleBtn" disabled>Apply Style</button>
         <select id="styleSelect">
-            <option value="wave">Wave</option>
-            <option value="udnie">Udnie</option>
-            <option value="rain_princess">Rain Princess</option>
-            <option value="mononoke">Mononoke</option>
-            <option value="scream">Scream</option>
+            <option value="starry_night">Starry Night</option>
+            <option value="great_wave">The Great Wave Off Kanagawa</option>
         </select>
     </div>
 
@@ -208,8 +205,22 @@
                     styleImage.src = styleImageUrl;
                 });
 
+                // Convert style image to tensor and resize for faster processing
+                const styleImageTensor = tf.browser.fromPixels(styleImage).div(255.0);
+                const resizedStyleTensor = tf.image.resizeBilinear(styleImageTensor, [256, 256]);
+
+                // Convert resized tensor back to canvas
+                const resizedStyleCanvas = document.createElement('canvas');
+                resizedStyleCanvas.width = 256;
+                resizedStyleCanvas.height = 256;
+                await tf.browser.toPixels(resizedStyleTensor, resizedStyleCanvas);
+
                 // Apply style transfer
-                const stylized = await styleNet.stylize(tempCanvas, styleImage);
+                const stylized = await styleNet.stylize(tempCanvas, resizedStyleCanvas);
+
+                // Clean up tensors
+                styleImageTensor.dispose();
+                resizedStyleTensor.dispose();
 
                 // Convert result to drawable canvas
                 let drawableResult;
@@ -241,14 +252,9 @@
 
         // Get style image URL
         function getStyleImageUrl(style) {
-            // These are placeholder URLs - in a real implementation,
-            // you would host these style images or use actual style transfer models
             const styleUrls = {
-                'wave': 'https://storage.googleapis.com/download.tensorflow.org/example_images/YellowLabradorLooking_new.jpg',
-                'udnie': 'https://storage.googleapis.com/download.tensorflow.org/example_images/YellowLabradorLooking_new.jpg',
-                'rain_princess': 'https://storage.googleapis.com/download.tensorflow.org/example_images/YellowLabradorLooking_new.jpg',
-                'mononoke': 'https://storage.googleapis.com/download.tensorflow.org/example_images/YellowLabradorLooking_new.jpg',
-                'scream': 'https://storage.googleapis.com/download.tensorflow.org/example_images/YellowLabradorLooking_new.jpg'
+                'starry_night': 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/ea/Van_Gogh_-_Starry_Night_-_Google_Art_Project.jpg/1513px-Van_Gogh_-_Starry_Night_-_Google_Art_Project.jpg',
+                'great_wave': 'https://upload.wikimedia.org/wikipedia/commons/0/0a/The_Great_Wave_off_Kanagawa.jpg'
             };
             return styleUrls[style];
         }
