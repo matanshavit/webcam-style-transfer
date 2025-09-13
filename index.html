@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Webcam Style Transfer</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@magenta/image@latest"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: #1a1a1a;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #container {
+            display: flex;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        video, canvas {
+            width: 400px;
+            height: 300px;
+            border: 2px solid #444;
+            border-radius: 8px;
+            background: #000;
+        }
+
+        #controls {
+            margin: 20px 0;
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            padding: 10px 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        button:hover {
+            background: #45a049;
+        }
+
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+
+        select {
+            padding: 10px;
+            font-size: 16px;
+            border-radius: 5px;
+            background: #333;
+            color: white;
+            border: 1px solid #555;
+        }
+
+        #status {
+            margin: 10px 0;
+            padding: 10px;
+            background: #333;
+            border-radius: 5px;
+            min-height: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Webcam Style Transfer</h1>
+
+    <div id="controls">
+        <button id="startBtn">Start Webcam</button>
+        <button id="applyStyleBtn" disabled>Apply Style</button>
+        <select id="styleSelect">
+            <option value="wave">Wave</option>
+            <option value="udnie">Udnie</option>
+            <option value="rain_princess">Rain Princess</option>
+            <option value="mononoke">Mononoke</option>
+            <option value="scream">Scream</option>
+        </select>
+    </div>
+
+    <div id="status">Ready to start...</div>
+
+    <div id="container">
+        <div>
+            <h3>Original</h3>
+            <video id="video" autoplay muted></video>
+        </div>
+        <div>
+            <h3>Stylized</h3>
+            <canvas id="output"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('output');
+        const ctx = canvas.getContext('2d');
+        const startBtn = document.getElementById('startBtn');
+        const applyStyleBtn = document.getElementById('applyStyleBtn');
+        const styleSelect = document.getElementById('styleSelect');
+        const status = document.getElementById('status');
+
+        let styleNet = null;
+        let isProcessing = false;
+        let animationId = null;
+
+        // Initialize canvas size
+        canvas.width = 400;
+        canvas.height = 300;
+
+        // Start webcam
+        startBtn.addEventListener('click', async () => {
+            try {
+                status.textContent = 'Accessing webcam...';
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: 400, height: 300 }
+                });
+                video.srcObject = stream;
+
+                startBtn.disabled = true;
+                applyStyleBtn.disabled = false;
+                status.textContent = 'Webcam started. Click "Apply Style" to begin.';
+            } catch (err) {
+                status.textContent = 'Error accessing webcam: ' + err.message;
+                console.error('Error accessing webcam:', err);
+            }
+        });
+
+        // Apply style transfer
+        applyStyleBtn.addEventListener('click', async () => {
+            if (isProcessing) {
+                // Stop processing
+                isProcessing = false;
+                if (animationId) {
+                    cancelAnimationFrame(animationId);
+                }
+                applyStyleBtn.textContent = 'Apply Style';
+                styleSelect.disabled = false;
+                status.textContent = 'Style transfer stopped.';
+            } else {
+                // Start processing
+                isProcessing = true;
+                applyStyleBtn.textContent = 'Stop';
+                styleSelect.disabled = true;
+                await loadModel();
+                if (styleNet) {
+                    processFrame();
+                }
+            }
+        });
+
+        // Load style transfer model
+        async function loadModel() {
+            const selectedStyle = styleSelect.value;
+            status.textContent = `Loading ${selectedStyle} style model...`;
+
+            try {
+                // Load the Magenta arbitrary style transfer model
+                if (!styleNet) {
+                    styleNet = new mi.ArbitraryStyleTransferNetwork();
+                    await styleNet.initialize();
+                }
+
+                status.textContent = 'Model loaded. Processing...';
+            } catch (err) {
+                status.textContent = 'Error loading model: ' + err.message;
+                console.error('Error loading model:', err);
+                isProcessing = false;
+                applyStyleBtn.textContent = 'Apply Style';
+                styleSelect.disabled = false;
+            }
+        }
+
+        // Process video frames
+        async function processFrame() {
+            if (!isProcessing) return;
+
+            try {
+                // Create temporary canvas for video frame
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = 256;  // Smaller size for faster processing
+                tempCanvas.height = 256;
+                const tempCtx = tempCanvas.getContext('2d');
+
+                // Draw and scale video frame
+                tempCtx.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
+
+                // Load style image
+                const styleImageUrl = getStyleImageUrl(styleSelect.value);
+                const styleImage = new Image();
+                styleImage.crossOrigin = 'anonymous';
+
+                await new Promise((resolve, reject) => {
+                    styleImage.onload = resolve;
+                    styleImage.onerror = reject;
+                    styleImage.src = styleImageUrl;
+                });
+
+                // Apply style transfer
+                const stylized = await styleNet.stylize(tempCanvas, styleImage);
+
+                // Convert result to drawable canvas
+                let drawableResult;
+                if (stylized instanceof HTMLCanvasElement) {
+                    drawableResult = stylized;
+                } else if (stylized instanceof ImageData) {
+                    // If it's ImageData, create canvas and put the data
+                    drawableResult = document.createElement('canvas');
+                    drawableResult.width = stylized.width;
+                    drawableResult.height = stylized.height;
+                    const resultCtx = drawableResult.getContext('2d');
+                    resultCtx.putImageData(stylized, 0, 0);
+                } else {
+                    // If it's a tensor, convert to canvas
+                    drawableResult = document.createElement('canvas');
+                    await tf.browser.toPixels(stylized, drawableResult);
+                }
+
+                // Draw stylized image to output canvas
+                ctx.drawImage(drawableResult, 0, 0, canvas.width, canvas.height);
+
+                // Continue processing next frame
+                animationId = requestAnimationFrame(processFrame);
+            } catch (err) {
+                console.error('Error processing frame:', err);
+                status.textContent = 'Error processing frame: ' + err.message;
+            }
+        }
+
+        // Get style image URL
+        function getStyleImageUrl(style) {
+            // These are placeholder URLs - in a real implementation,
+            // you would host these style images or use actual style transfer models
+            const styleUrls = {
+                'wave': 'https://storage.googleapis.com/download.tensorflow.org/example_images/YellowLabradorLooking_new.jpg',
+                'udnie': 'https://storage.googleapis.com/download.tensorflow.org/example_images/YellowLabradorLooking_new.jpg',
+                'rain_princess': 'https://storage.googleapis.com/download.tensorflow.org/example_images/YellowLabradorLooking_new.jpg',
+                'mononoke': 'https://storage.googleapis.com/download.tensorflow.org/example_images/YellowLabradorLooking_new.jpg',
+                'scream': 'https://storage.googleapis.com/download.tensorflow.org/example_images/YellowLabradorLooking_new.jpg'
+            };
+            return styleUrls[style];
+        }
+
+    </script>
+</body>
+</html>
