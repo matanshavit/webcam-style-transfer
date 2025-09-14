@@ -325,8 +325,8 @@
             try {
                 // Create temporary canvas for video frame
                 const tempCanvas = document.createElement('canvas');
-                tempCanvas.width = 256;  // Smaller size for faster processing
-                tempCanvas.height = 256;
+                tempCanvas.width = 128;  // Even smaller size for faster processing
+                tempCanvas.height = 128;
                 const tempCtx = tempCanvas.getContext('2d');
 
                 // Draw and scale video frame
