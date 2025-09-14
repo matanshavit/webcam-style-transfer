@@ -64,6 +64,22 @@
             cursor: not-allowed;
         }
 
+        button.stop {
+            background: #f44336;
+        }
+
+        button.stop:hover {
+            background: #d32f2f;
+        }
+
+        button.start {
+            background: #2196F3;
+        }
+
+        button.start:hover {
+            background: #1976D2;
+        }
+
         select {
             padding: 10px;
             font-size: 16px;
@@ -114,8 +130,8 @@
     <h1>Webcam Style Transfer</h1>
 
     <div id="controls">
-        <button id="startBtn">Start Webcam</button>
-        <button id="applyStyleBtn" disabled>Apply Style</button>
+        <button id="startBtn" class="start">Start Webcam</button>
+        <button id="applyStyleBtn" style="display: none;">Apply Style</button>
         <select id="styleSelect">
             <option value="starry_night">Starry Night (Van Gogh)</option>
             <option value="great_wave">The Great Wave Off Kanagawa (Hokusai)</option>
@@ -193,8 +209,8 @@
                 });
                 video.srcObject = stream;
 
-                startBtn.disabled = true;
-                applyStyleBtn.disabled = false;
+                startBtn.style.display = 'none';
+                applyStyleBtn.style.display = 'inline-block';
                 status.textContent = 'Webcam started. Click "Apply Style" to begin.';
             } catch (err) {
                 status.textContent = 'Error accessing webcam: ' + err.message;
@@ -211,6 +227,7 @@
                     cancelAnimationFrame(animationId);
                 }
                 applyStyleBtn.textContent = 'Apply Style';
+                applyStyleBtn.classList.remove('stop');
                 styleSelect.disabled = false;
                 resolutionSelect.disabled = false;
                 // Switch back to original video
@@ -224,6 +241,7 @@
                 // Start processing
                 isProcessing = true;
                 applyStyleBtn.textContent = 'Stop';
+                applyStyleBtn.classList.add('stop');
                 styleSelect.disabled = true;
                 resolutionSelect.disabled = true;
                 await loadModel();
@@ -263,6 +281,7 @@
                 console.error('Error loading model:', err);
                 isProcessing = false;
                 applyStyleBtn.textContent = 'Apply Style';
+                applyStyleBtn.classList.remove('stop');
                 styleSelect.disabled = false;
                 resolutionSelect.disabled = false;
             }
