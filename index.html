@@ -20,7 +20,7 @@
 
         #container {
             display: flex;
-            gap: 20px;
+            justify-content: center;
             margin-top: 20px;
         }
 
@@ -30,6 +30,13 @@
             border: 2px solid #444;
             border-radius: 8px;
             background: #000;
+            position: absolute;
+        }
+
+        #container > div {
+            position: relative;
+            width: 400px;
+            height: 300px;
         }
 
         #controls {
@@ -136,12 +143,9 @@
 
     <div id="container">
         <div>
-            <h3>Original</h3>
+            <h3 id="videoTitle">Webcam Video</h3>
             <video id="video" autoplay muted></video>
-        </div>
-        <div>
-            <h3>Stylized</h3>
-            <canvas id="output"></canvas>
+            <canvas id="output" style="display: none;"></canvas>
         </div>
     </div>
 
@@ -156,6 +160,7 @@
         const status = document.getElementById('status');
         const fpsDisplay = document.getElementById('fps');
         const latencyDisplay = document.getElementById('latency');
+        const videoTitle = document.getElementById('videoTitle');
 
         let styleNet = null;
         let isProcessing = false;
@@ -208,6 +213,10 @@
                 applyStyleBtn.textContent = 'Apply Style';
                 styleSelect.disabled = false;
                 resolutionSelect.disabled = false;
+                // Switch back to original video
+                video.style.visibility = 'visible';
+                canvas.style.display = 'none';
+                videoTitle.textContent = 'Webcam Video';
                 status.textContent = 'Style transfer stopped.';
                 fpsDisplay.textContent = 'FPS: --';
                 latencyDisplay.textContent = 'Latency: --';
@@ -219,6 +228,10 @@
                 resolutionSelect.disabled = true;
                 await loadModel();
                 if (styleNet) {
+                    // Switch to stylized view
+                    video.style.visibility = 'hidden';
+                    canvas.style.display = 'block';
+                    videoTitle.textContent = 'Stylized Video';
                     resetCounters();
                     processFrame();
                 }
