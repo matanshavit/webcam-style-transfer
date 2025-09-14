@@ -311,6 +311,11 @@
         // Cache for preprocessed style image
         let cachedStyleCanvas = null;
         let currentStyleName = null;
+        let currentResolution = null;
+
+        // Canvas visibility control
+        let isCanvasReady = false;
+        let isStyleChanging = false;
 
         // Initialize canvas size
         canvas.width = 400;
@@ -387,8 +392,6 @@
                 }
                 applyStyleBtn.textContent = 'Apply Style';
                 applyStyleBtn.classList.remove('stop');
-                styleSelect.disabled = false;
-                resolutionSelect.disabled = false;
                 // Switch back to original video
                 video.style.visibility = 'visible';
                 canvas.style.display = 'none';
@@ -396,29 +399,69 @@
                 status.textContent = 'Style transfer stopped.';
                 fpsDisplay.textContent = 'FPS: --';
                 latencyDisplay.textContent = 'Latency: --';
+                isCanvasReady = false;
+                isStyleChanging = false;
             } else {
                 // Start processing
                 isProcessing = true;
                 applyStyleBtn.textContent = 'Stop';
                 applyStyleBtn.classList.add('stop');
-                styleSelect.disabled = true;
-                resolutionSelect.disabled = true;
+                isCanvasReady = false;
+                isStyleChanging = false;
                 await loadModel();
                 if (styleNet) {
-                    // Switch to stylized view
+                    // Hide video but don't show canvas yet - wait for first frame
                     video.style.visibility = 'hidden';
-                    canvas.style.display = 'block';
+                    canvas.style.display = 'none';
                     videoTitle.textContent = 'Stylized Video';
                     resetCounters();
-                    processFrame();
+                    await processFrame();
+                    // Show canvas only after first successful frame to prevent flash
+                    if (!isCanvasReady && isProcessing) {
+                        canvas.style.display = 'block';
+                        isCanvasReady = true;
+                        status.textContent = 'Style transfer active. Processing...';
+                    }
                 }
+            }
+        });
+
+        // Add change listeners for dynamic switching during processing
+        styleSelect.addEventListener('change', async () => {
+            if (isProcessing) {
+                isStyleChanging = true;
+                isCanvasReady = false;
+                canvas.style.display = 'none';
+                video.style.visibility = 'hidden';
+                status.textContent = `Switching to ${styleSelect.value} style...`;
+                await loadModel();
+                // Wait for first frame with new style, then show canvas
+                await processFrame();
+                if (!isCanvasReady && isProcessing) {
+                    canvas.style.display = 'block';
+                    isCanvasReady = true;
+                    status.textContent = 'Style transfer active. Processing...';
+                }
+            }
+        });
+
+        resolutionSelect.addEventListener('change', () => {
+            if (isProcessing) {
+                currentResolution = parseInt(resolutionSelect.value);
+                status.textContent = `Switched to ${currentResolution}x${currentResolution} resolution`;
             }
         });
 
         // Load style transfer model and preprocess style image
         async function loadModel() {
             const selectedStyle = styleSelect.value;
-            status.textContent = `Loading ${selectedStyle} style model...`;
+            const selectedResolution = parseInt(resolutionSelect.value);
+
+            if (isStyleChanging) {
+                status.textContent = `Switching to ${selectedStyle} style...`;
+            } else {
+                status.textContent = `Loading ${selectedStyle} style model...`;
+            }
 
             try {
                 // Load the Magenta arbitrary style transfer model
@@ -429,20 +472,32 @@
 
                 // Preprocess style image if it's new or hasn't been cached
                 if (currentStyleName !== selectedStyle) {
-                    status.textContent = 'Preprocessing style image...';
+                    if (isStyleChanging) {
+                        status.textContent = `Loading ${selectedStyle} style...`;
+                    } else {
+                        status.textContent = 'Preprocessing style image...';
+                    }
                     await preprocessStyleImage(selectedStyle);
                     currentStyleName = selectedStyle;
                 }
 
-                status.textContent = 'Model loaded. Processing...';
+                // Update current resolution
+                currentResolution = selectedResolution;
+
+                if (isStyleChanging) {
+                    status.textContent = `${selectedStyle} style ready. Processing...`;
+                    isStyleChanging = false;
+                } else {
+                    status.textContent = 'Model loaded. Processing...';
+                }
             } catch (err) {
                 status.textContent = 'Error loading model: ' + err.message;
                 console.error('Error loading model:', err);
                 isProcessing = false;
                 applyStyleBtn.textContent = 'Apply Style';
                 applyStyleBtn.classList.remove('stop');
-                styleSelect.disabled = false;
-                resolutionSelect.disabled = false;
+                isStyleChanging = false;
+                isCanvasReady = false;
             }
         }
 
@@ -522,8 +577,8 @@
             const frameStartTime = performance.now();
 
             try {
-                // Get selected resolution
-                const resolution = parseInt(resolutionSelect.value);
+                // Use current resolution (might have changed during processing)
+                const resolution = currentResolution || parseInt(resolutionSelect.value);
 
                 // Create temporary canvas for video frame
                 const tempCanvas = document.createElement('canvas');
@@ -562,8 +617,10 @@
                 updateFPS();
                 updateLatency(processingTime);
 
-                // Continue processing next frame
-                animationId = requestAnimationFrame(processFrame);
+                // Continue processing next frame (only if we're still processing)
+                if (isProcessing) {
+                    animationId = requestAnimationFrame(processFrame);
+                }
             } catch (err) {
                 console.error('Error processing frame:', err);
                 status.textContent = 'Error processing frame: ' + err.message;
