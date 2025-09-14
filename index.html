@@ -73,9 +73,37 @@
             border-radius: 5px;
             min-height: 20px;
         }
+
+        #fps {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            color: #00ff00;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        #latency {
+            position: absolute;
+            top: 60px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            color: #ffaa00;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
+    <div id="fps">FPS: --</div>
+    <div id="latency">Latency: --</div>
     <h1>Webcam Style Transfer</h1>
 
     <div id="controls">
@@ -121,10 +149,22 @@
         const applyStyleBtn = document.getElementById('applyStyleBtn');
         const styleSelect = document.getElementById('styleSelect');
         const status = document.getElementById('status');
+        const fpsDisplay = document.getElementById('fps');
+        const latencyDisplay = document.getElementById('latency');
 
         let styleNet = null;
         let isProcessing = false;
         let animationId = null;
+
+        // FPS tracking variables
+        let frameCount = 0;
+        let lastTime = performance.now();
+        let fps = 0;
+
+        // Latency tracking variables
+        let latencySum = 0;
+        let latencyCount = 0;
+        let avgLatency = 0;
 
         // Initialize canvas size
         canvas.width = 400;
@@ -159,6 +199,8 @@
                 applyStyleBtn.textContent = 'Apply Style';
                 styleSelect.disabled = false;
                 status.textContent = 'Style transfer stopped.';
+                fpsDisplay.textContent = 'FPS: --';
+                latencyDisplay.textContent = 'Latency: --';
             } else {
                 // Start processing
                 isProcessing = true;
@@ -166,6 +208,7 @@
                 styleSelect.disabled = true;
                 await loadModel();
                 if (styleNet) {
+                    resetCounters();
                     processFrame();
                 }
             }
@@ -193,9 +236,53 @@
             }
         }
 
+        // Update FPS counter
+        function updateFPS() {
+            frameCount++;
+            const currentTime = performance.now();
+            const deltaTime = currentTime - lastTime;
+
+            // Update FPS display every second
+            if (deltaTime >= 1000) {
+                fps = Math.round((frameCount * 1000) / deltaTime);
+                fpsDisplay.textContent = `FPS: ${fps}`;
+                frameCount = 0;
+                lastTime = currentTime;
+            }
+        }
+
+        // Update latency counter
+        function updateLatency(processingTime) {
+            latencySum += processingTime;
+            latencyCount++;
+
+            // Update latency display every 10 frames for smoother updates
+            if (latencyCount >= 10) {
+                avgLatency = Math.round(latencySum / latencyCount);
+                latencyDisplay.textContent = `Latency: ${avgLatency}ms`;
+                latencySum = 0;
+                latencyCount = 0;
+            }
+        }
+
+        // Reset counters when starting processing
+        function resetCounters() {
+            frameCount = 0;
+            lastTime = performance.now();
+            fps = 0;
+            fpsDisplay.textContent = 'FPS: --';
+
+            latencySum = 0;
+            latencyCount = 0;
+            avgLatency = 0;
+            latencyDisplay.textContent = 'Latency: --';
+        }
+
         // Process video frames
         async function processFrame() {
             if (!isProcessing) return;
+
+            const frameStartTime = performance.now();
 
             try {
                 // Create temporary canvas for video frame
@@ -254,6 +341,11 @@
 
                 // Draw stylized image to output canvas
                 ctx.drawImage(drawableResult, 0, 0, canvas.width, canvas.height);
+
+                // Calculate processing time and update counters
+                const processingTime = performance.now() - frameStartTime;
+                updateFPS();
+                updateLatency(processingTime);
 
                 // Continue processing next frame
                 animationId = requestAnimationFrame(processFrame);
