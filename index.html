@@ -9,7 +9,7 @@
     <style>
         body {
             margin: 0;
-            padding: 10px;
+            padding: 5px;
             font-family: Arial, sans-serif;
             background: #1a1a1a;
             color: white;
@@ -27,7 +27,7 @@
         #container {
             display: flex;
             justify-content: center;
-            margin-top: 20px;
+            margin-top: 10px;
         }
 
         video, canvas {
@@ -44,35 +44,50 @@
 
         #container > div {
             position: relative;
-            width: min(400px, 90vw);
-            height: min(300px, calc(90vw * 0.75));
+            width: min(600px, 90vw);
+            height: min(450px, calc(90vw * 0.75));
             max-width: 100%;
         }
 
+        /* Larger sizes for very large screens */
+        @media (min-width: 1200px) {
+            #container > div {
+                width: min(800px, 80vw);
+                height: min(600px, calc(80vw * 0.75));
+            }
+        }
+
+        @media (min-width: 1600px) {
+            #container > div {
+                width: min(1000px, 70vw);
+                height: min(750px, calc(70vw * 0.75));
+            }
+        }
+
         #controls {
-            margin: 20px 0;
+            margin: 10px 0;
             display: flex;
             flex-wrap: wrap;
-            gap: 10px;
+            gap: 8px;
             justify-content: center;
             align-items: center;
             max-width: 100%;
         }
 
         button {
-            padding: 12px 24px;
+            padding: 8px 16px;
             background: #4CAF50;
             color: white;
             border: none;
-            border-radius: 5px;
+            border-radius: 4px;
             cursor: pointer;
-            font-size: 16px;
-            min-width: 120px;
+            font-size: 14px;
+            min-width: 100px;
             white-space: nowrap;
         }
 
         #startBtn, #applyStyleBtn {
-            width: 160px;
+            width: 140px;
         }
 
         button:hover {
@@ -101,24 +116,25 @@
         }
 
         select {
-            padding: 12px;
-            font-size: 16px;
-            border-radius: 5px;
+            padding: 8px;
+            font-size: 14px;
+            border-radius: 4px;
             background: #333;
             color: white;
             border: 1px solid #555;
-            min-width: 150px;
+            min-width: 120px;
         }
 
         #status {
-            margin: 10px 0;
-            padding: 15px;
+            margin: 8px 0;
+            padding: 8px 12px;
             background: #333;
-            border-radius: 5px;
-            min-height: 20px;
+            border-radius: 4px;
+            min-height: 16px;
             max-width: 90vw;
             text-align: center;
             word-wrap: break-word;
+            font-size: 14px;
         }
 
         #fps {
@@ -154,24 +170,25 @@
             }
 
             h1 {
-                font-size: 24px;
+                font-size: 18px;
                 text-align: center;
-                margin: 10px 0;
+                margin: 3px 0;
             }
 
             #controls {
                 flex-direction: column;
                 align-items: stretch;
-                margin: 15px 0;
+                margin: 8px 0;
                 width: 100%;
                 max-width: 300px;
+                gap: 6px;
             }
 
             button, select {
                 width: 100%;
-                margin: 5px 0;
-                font-size: 18px;
-                padding: 15px;
+                margin: 0;
+                font-size: 14px;
+                padding: 8px 16px;
             }
 
             #startBtn, #applyStyleBtn {
@@ -195,13 +212,15 @@
 
             #status {
                 font-size: 14px;
-                padding: 12px;
+                padding: 8px 12px;
+                margin: 8px 0;
             }
         }
 
         @media (max-width: 480px) {
             h1 {
-                font-size: 20px;
+                font-size: 16px;
+                margin: 2px 0;
             }
 
             #fps, #latency {
@@ -210,8 +229,13 @@
             }
 
             button, select {
-                font-size: 16px;
-                padding: 12px;
+                font-size: 13px;
+                padding: 7px 14px;
+            }
+
+            #controls {
+                margin: 6px 0;
+                gap: 4px;
             }
         }
     </style>
@@ -219,7 +243,7 @@
 <body>
     <div id="fps">FPS: --</div>
     <div id="latency">Latency: --</div>
-    <h1>Webcam Style Transfer</h1>
+    <h1 style="font-size: 22px; margin: 8px 0;">Webcam Style Transfer</h1>
 
     <div id="controls">
         <button id="startBtn" class="start">Start Webcam</button>
@@ -247,8 +271,6 @@
         </select>
     </div>
 
-    <div id="status">Ready to start...</div>
-
     <div id="container">
         <div>
             <h3 id="videoTitle">Webcam Video</h3>
@@ -256,6 +278,8 @@
             <canvas id="output" style="display: none;"></canvas>
         </div>
     </div>
+
+    <div id="status">Ready to start...</div>
 
     <script>
         const video = document.getElementById('video');
@@ -292,6 +316,44 @@
         canvas.width = 400;
         canvas.height = 300;
 
+        // Function to update container dimensions based on current screen size
+        function updateContainerDimensions() {
+            if (!video.videoWidth || !video.videoHeight) return;
+
+            const videoAspectRatio = video.videoWidth / video.videoHeight;
+
+            // Calculate container height based on screen size
+            let maxHeight, maxWidthPercent;
+            if (window.innerWidth >= 1600) {
+                maxHeight = 750;
+                maxWidthPercent = 0.7;
+            } else if (window.innerWidth >= 1200) {
+                maxHeight = 600;
+                maxWidthPercent = 0.8;
+            } else if (window.innerWidth <= 768) {
+                maxHeight = 300;
+                maxWidthPercent = 0.9;
+            } else {
+                maxHeight = 450;
+                maxWidthPercent = 0.9;
+            }
+
+            const containerHeight = Math.min(maxHeight, window.innerWidth * maxWidthPercent * 0.75);
+            const newWidth = Math.round(containerHeight * videoAspectRatio);
+
+            // Update container dimensions
+            const container = document.querySelector('#container > div');
+            container.style.width = `${newWidth}px`;
+            container.style.height = `${containerHeight}px`;
+
+            // Update canvas dimensions to match
+            canvas.width = newWidth;
+            canvas.height = containerHeight;
+        }
+
+        // Add window resize listener
+        window.addEventListener('resize', updateContainerDimensions);
+
         // Start webcam
         startBtn.addEventListener('click', async () => {
             try {
@@ -303,19 +365,7 @@
 
                 // Wait for video to load its metadata to get actual dimensions
                 video.addEventListener('loadedmetadata', () => {
-                    const videoAspectRatio = video.videoWidth / video.videoHeight;
-                    const containerHeight = window.innerWidth <= 768 ?
-                        Math.min(300, window.innerWidth * 0.9 * 0.75) : 300;
-                    const newWidth = Math.round(containerHeight * videoAspectRatio);
-
-                    // Update container dimensions
-                    const container = document.querySelector('#container > div');
-                    container.style.width = `${newWidth}px`;
-                    container.style.height = `${containerHeight}px`;
-
-                    // Update canvas dimensions to match
-                    canvas.width = newWidth;
-                    canvas.height = containerHeight;
+                    updateContainerDimensions();
                 });
 
                 startBtn.style.display = 'none';
