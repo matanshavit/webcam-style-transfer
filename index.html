@@ -166,6 +166,10 @@
         let latencyCount = 0;
         let avgLatency = 0;
 
+        // Cache for preprocessed style image
+        let cachedStyleCanvas = null;
+        let currentStyleName = null;
+
         // Initialize canvas size
         canvas.width = 400;
         canvas.height = 300;
@@ -214,7 +218,7 @@
             }
         });
 
-        // Load style transfer model
+        // Load style transfer model and preprocess style image
         async function loadModel() {
             const selectedStyle = styleSelect.value;
             status.textContent = `Loading ${selectedStyle} style model...`;
@@ -226,6 +230,13 @@
                     await styleNet.initialize();
                 }
 
+                // Preprocess style image if it's new or hasn't been cached
+                if (currentStyleName !== selectedStyle) {
+                    status.textContent = 'Preprocessing style image...';
+                    await preprocessStyleImage(selectedStyle);
+                    currentStyleName = selectedStyle;
+                }
+
                 status.textContent = 'Model loaded. Processing...';
             } catch (err) {
                 status.textContent = 'Error loading model: ' + err.message;
@@ -234,6 +245,33 @@
                 applyStyleBtn.textContent = 'Apply Style';
                 styleSelect.disabled = false;
             }
+        }
+
+        // Preprocess and cache the style image
+        async function preprocessStyleImage(styleName) {
+            const styleImageUrl = getStyleImageUrl(styleName);
+            const styleImage = new Image();
+            styleImage.crossOrigin = 'anonymous';
+
+            await new Promise((resolve, reject) => {
+                styleImage.onload = resolve;
+                styleImage.onerror = reject;
+                styleImage.src = styleImageUrl;
+            });
+
+            // Convert style image to tensor and resize once
+            const styleImageTensor = tf.browser.fromPixels(styleImage).div(255.0);
+            const resizedStyleTensor = tf.image.resizeBilinear(styleImageTensor, [256, 256]);
+
+            // Create cached canvas
+            cachedStyleCanvas = document.createElement('canvas');
+            cachedStyleCanvas.width = 256;
+            cachedStyleCanvas.height = 256;
+            await tf.browser.toPixels(resizedStyleTensor, cachedStyleCanvas);
+
+            // Clean up tensors
+            styleImageTensor.dispose();
+            resizedStyleTensor.dispose();
         }
 
         // Update FPS counter
@@ -294,33 +332,8 @@
                 // Draw and scale video frame
                 tempCtx.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
 
-                // Load style image
-                const styleImageUrl = getStyleImageUrl(styleSelect.value);
-                const styleImage = new Image();
-                styleImage.crossOrigin = 'anonymous';
-
-                await new Promise((resolve, reject) => {
-                    styleImage.onload = resolve;
-                    styleImage.onerror = reject;
-                    styleImage.src = styleImageUrl;
-                });
-
-                // Convert style image to tensor and resize for faster processing
-                const styleImageTensor = tf.browser.fromPixels(styleImage).div(255.0);
-                const resizedStyleTensor = tf.image.resizeBilinear(styleImageTensor, [256, 256]);
-
-                // Convert resized tensor back to canvas
-                const resizedStyleCanvas = document.createElement('canvas');
-                resizedStyleCanvas.width = 256;
-                resizedStyleCanvas.height = 256;
-                await tf.browser.toPixels(resizedStyleTensor, resizedStyleCanvas);
-
-                // Apply style transfer
-                const stylized = await styleNet.stylize(tempCanvas, resizedStyleCanvas);
-
-                // Clean up tensors
-                styleImageTensor.dispose();
-                resizedStyleTensor.dispose();
+                // Apply style transfer using cached style image
+                const stylized = await styleNet.stylize(tempCanvas, cachedStyleCanvas);
 
                 // Convert result to drawable canvas
                 let drawableResult;
