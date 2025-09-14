@@ -126,6 +126,10 @@
             <option value="mondrian_composition">Composition II in Red, Blue, and Yellow (Mondrian)</option>
             <option value="kandinsky_composition">Composition VIII (Kandinsky)</option>
         </select>
+        <select id="resolutionSelect">
+            <option value="128">128x128 (Fast)</option>
+            <option value="256">256x256 (High Quality)</option>
+        </select>
     </div>
 
     <div id="status">Ready to start...</div>
@@ -148,6 +152,7 @@
         const startBtn = document.getElementById('startBtn');
         const applyStyleBtn = document.getElementById('applyStyleBtn');
         const styleSelect = document.getElementById('styleSelect');
+        const resolutionSelect = document.getElementById('resolutionSelect');
         const status = document.getElementById('status');
         const fpsDisplay = document.getElementById('fps');
         const latencyDisplay = document.getElementById('latency');
@@ -202,6 +207,7 @@
                 }
                 applyStyleBtn.textContent = 'Apply Style';
                 styleSelect.disabled = false;
+                resolutionSelect.disabled = false;
                 status.textContent = 'Style transfer stopped.';
                 fpsDisplay.textContent = 'FPS: --';
                 latencyDisplay.textContent = 'Latency: --';
@@ -210,6 +216,7 @@
                 isProcessing = true;
                 applyStyleBtn.textContent = 'Stop';
                 styleSelect.disabled = true;
+                resolutionSelect.disabled = true;
                 await loadModel();
                 if (styleNet) {
                     resetCounters();
@@ -244,6 +251,7 @@
                 isProcessing = false;
                 applyStyleBtn.textContent = 'Apply Style';
                 styleSelect.disabled = false;
+                resolutionSelect.disabled = false;
             }
         }
 
@@ -323,10 +331,13 @@
             const frameStartTime = performance.now();
 
             try {
+                // Get selected resolution
+                const resolution = parseInt(resolutionSelect.value);
+
                 // Create temporary canvas for video frame
                 const tempCanvas = document.createElement('canvas');
-                tempCanvas.width = 128;  // Even smaller size for faster processing
-                tempCanvas.height = 128;
+                tempCanvas.width = resolution;
+                tempCanvas.height = resolution;
                 const tempCtx = tempCanvas.getContext('2d');
 
                 // Draw and scale video frame
