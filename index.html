@@ -526,6 +526,9 @@
             // Clean up tensors
             styleImageTensor.dispose();
             resizedStyleTensor.dispose();
+
+            // run image through prediction model
+            await styleNet.setStyle(cachedStyleCanvas);
         }
 
         // Update FPS counter
@@ -590,7 +593,7 @@
                 tempCtx.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
 
                 // Apply style transfer using cached style image
-                const stylized = await styleNet.stylize(tempCanvas, cachedStyleCanvas);
+                const stylized = await styleNet.stylize(tempCanvas);
 
                 // Convert result to drawable canvas
                 let drawableResult;

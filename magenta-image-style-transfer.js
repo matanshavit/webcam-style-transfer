@@ -60,22 +60,26 @@ class ArbitraryStyleTransferNetwork {
     });
   }
 
-  stylize(
-      content,
-      style,
-      strength) {
+  async setStyle(style, strength) {
+    if (this.styleRepresentation !== undefined) {
+      this.styleRepresentation.dispose();
+    }
+
+    let styleRepresentation = this.predictStyleParameters(style);
+    if (strength !== undefined) {
+      styleRepresentation = styleRepresentation.mul(tf.scalar(strength))
+                                .add(this.predictStyleParameters(content).mul(
+                                    tf.scalar(1.0 - strength)));
+    }
+    this.styleRepresentation = styleRepresentation;
+  }
+
+  stylize(content) {
     return new Promise((resolve, reject) => {
-      let styleRepresentation = this.predictStyleParameters(style);
-      if (strength !== undefined) {
-        styleRepresentation = styleRepresentation.mul(tf.scalar(strength))
-                                  .add(this.predictStyleParameters(content).mul(
-                                      tf.scalar(1.0 - strength)));
-      }
-      const stylized = this.produceStylized(content, styleRepresentation);
+      const stylized = this.produceStylized(content, this.styleRepresentation);
       return tf.browser.toPixels(stylized).then((bytes) => {
         const imageData =
             new ImageData(bytes, stylized.shape[1], stylized.shape[0]);
-        styleRepresentation.dispose();
         stylized.dispose();
         resolve(imageData);
       });
