@@ -401,14 +401,21 @@
                 applyStyleBtn.textContent = 'Stop';
                 applyStyleBtn.classList.add('stop');
                 styleSelect.disabled = true;
+                isCanvasReady = false;
                 await loadModel();
                 if (styleNet) {
-                    // Switch to stylized view
+                    // Hide video but don't show canvas yet - wait for first frame
                     video.style.visibility = 'hidden';
-                    canvas.style.display = 'block';
+                    canvas.style.display = 'none';
                     videoTitle.textContent = 'Stylized Video';
                     resetCounters();
-                    processFrame();
+                    await processFrame();
+                    // Show canvas only after first successful frame to prevent flash
+                    if (!isCanvasReady && isProcessing) {
+                        canvas.style.display = 'block';
+                        isCanvasReady = true;
+                        status.textContent = 'Style transfer active. Processing...';
+                    }
                 }
             }
         });
@@ -440,6 +447,7 @@
                 applyStyleBtn.textContent = 'Apply Style';
                 applyStyleBtn.classList.remove('stop');
                 styleSelect.disabled = false;
+                isCanvasReady = false;
             }
         }
 
