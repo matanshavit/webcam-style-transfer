@@ -266,6 +266,7 @@
             <option value="kandinsky_composition">Composition VIII (Kandinsky)</option>
             <option value="christinas_world">Christina's World (Wyeth)</option>
             <option value="music">Music in Pink and Blue No. 2 (O'Keefe)</option>
+            <option value="add_custom" style="font-style: italic;">+ Add Custom Style...</option>
         </select>
         <select id="resolutionSelect">
             <option value="128">128x128 (Fast)</option>
@@ -322,6 +323,10 @@
         let pendingStyleSwitch = false;
         let isCanvasReady = false;
 
+        // Custom styles management
+        let customStyles = new Map();
+        let customStyleCounter = 1;
+
         // Initialize canvas size
         canvas.width = 400;
         canvas.height = 300;
@@ -367,6 +372,12 @@
         // Handle style selection changes for seamless switching
         styleSelect.addEventListener('change', async () => {
             const selectedStyle = styleSelect.value;
+
+            // Handle custom style addition
+            if (selectedStyle === 'add_custom') {
+                await handleAddCustomStyle();
+                return;
+            }
 
             // If not currently processing, just update the selection
             if (!isProcessing) return;
@@ -653,8 +664,96 @@
             }
         }
 
+        // Handle adding custom style
+        async function handleAddCustomStyle() {
+            // Find the previously selected style (not "add_custom")
+            let previousStyle = 'starry_night'; // fallback
+            for (let i = 0; i < styleSelect.options.length; i++) {
+                const option = styleSelect.options[i];
+                if (option.value !== 'add_custom' && option.defaultSelected) {
+                    previousStyle = option.value;
+                    break;
+                }
+            }
+
+            // Reset to a valid selection to avoid showing "Add Custom Style..."
+            styleSelect.value = previousStyle;
+
+            const imageUrl = prompt('Enter image URL:');
+
+            if (!imageUrl) {
+                return; // User cancelled
+            }
+
+            if (!isValidImageUrl(imageUrl)) {
+                alert('Please enter a valid image URL (jpg, jpeg, png, gif, webp, bmp)');
+                return;
+            }
+
+            const originalStatus = status.textContent;
+            status.textContent = 'Loading custom style...';
+
+            try {
+                // Test if image loads
+                await testImageLoad(imageUrl);
+
+                // Create custom style
+                const styleId = `custom_${Date.now()}`;
+                const styleName = `Custom Image #${customStyleCounter}`;
+
+                customStyles.set(styleId, imageUrl);
+                customStyleCounter++;
+
+                // Add to dropdown (before the "Add Custom Style..." option)
+                const option = document.createElement('option');
+                option.value = styleId;
+                option.textContent = styleName;
+
+                const addCustomOption = styleSelect.querySelector('option[value="add_custom"]');
+                styleSelect.insertBefore(option, addCustomOption);
+
+                // Select the new style
+                styleSelect.value = styleId;
+
+                status.textContent = `Added ${styleName}`;
+                setTimeout(() => {
+                    status.textContent = originalStatus;
+                }, 2000);
+
+            } catch (error) {
+                console.error('Error loading custom style:', error);
+                status.textContent = 'Error loading image. Please check the URL.';
+                setTimeout(() => {
+                    status.textContent = originalStatus;
+                }, 3000);
+            }
+        }
+
+        // Validate image URL
+        function isValidImageUrl(url) {
+            const imageExtensions = /\.(jpg|jpeg|png|gif|webp|bmp)(\?.*)?$/i;
+            return imageExtensions.test(url);
+        }
+
+        // Test if image can be loaded
+        function testImageLoad(url) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.onload = () => resolve();
+                img.onerror = () => reject(new Error('Image failed to load'));
+                img.src = url;
+            });
+        }
+
         // Get style image URL
         function getStyleImageUrl(style) {
+            // Check if it's a custom style
+            if (customStyles.has(style)) {
+                return customStyles.get(style);
+            }
+
+            // Default built-in styles
             const styleUrls = {
                 'starry_night': 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/ea/Van_Gogh_-_Starry_Night_-_Google_Art_Project.jpg/960px-Van_Gogh_-_Starry_Night_-_Google_Art_Project.jpg',
                 'great_wave': 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0a/The_Great_Wave_off_Kanagawa.jpg/960px-The_Great_Wave_off_Kanagawa.jpg',
