@@ -310,9 +310,14 @@
         let latencyCount = 0;
         let avgLatency = 0;
 
-        // Cache for preprocessed style image
-        let cachedStyleCanvas = null;
-        let currentStyleName = null;
+        // Dual processing system for seamless style switching
+        let activeStyleCanvas = null;
+        let activeStyleName = null;
+        let backgroundStyleCanvas = null;
+        let backgroundStyleName = null;
+        let isPreparingStyle = false;
+        let pendingStyleSwitch = false;
+        let isCanvasReady = false;
 
         // Initialize canvas size
         canvas.width = 400;
@@ -356,6 +361,19 @@
         // Add window resize listener
         window.addEventListener('resize', updateContainerDimensions);
 
+        // Handle style selection changes for seamless switching
+        styleSelect.addEventListener('change', async () => {
+            const selectedStyle = styleSelect.value;
+
+            // If not currently processing, just update the selection
+            if (!isProcessing) return;
+
+            // If processing, prepare the new style in background
+            if (selectedStyle !== activeStyleName && !isPreparingStyle) {
+                prepareBackgroundStyle(selectedStyle);
+            }
+        });
+
         // Start webcam
         startBtn.addEventListener('click', async () => {
             try {
@@ -397,15 +415,22 @@
                 status.textContent = 'Style transfer stopped.';
                 fpsDisplay.textContent = 'FPS: --';
                 latencyDisplay.textContent = 'Latency: --';
+
+                // Clean up style resources
+                activeStyleCanvas = null;
+                activeStyleName = null;
+                backgroundStyleCanvas = null;
+                backgroundStyleName = null;
+                isPreparingStyle = false;
+                pendingStyleSwitch = false;
             } else {
                 // Start processing
                 isProcessing = true;
                 applyStyleBtn.textContent = 'Stop';
                 applyStyleBtn.classList.add('stop');
-                styleSelect.disabled = true;
                 isCanvasReady = false;
-                await loadModel();
-                if (styleNet) {
+                await initializeStyleTransfer();
+                if (styleNet && activeStyleCanvas) {
                     // Hide video but don't show canvas yet - wait for first frame
                     video.style.visibility = 'hidden';
                     canvas.style.display = 'none';
@@ -422,8 +447,8 @@
             }
         });
 
-        // Load style transfer model and preprocess style image
-        async function loadModel() {
+        // Initialize style transfer for the first time
+        async function initializeStyleTransfer() {
             const selectedStyle = styleSelect.value;
             status.textContent = `Loading ${selectedStyle} style model...`;
 
@@ -434,12 +459,10 @@
                     await styleNet.initialize();
                 }
 
-                // Preprocess style image if it's new or hasn't been cached
-                if (currentStyleName !== selectedStyle) {
-                    status.textContent = 'Preprocessing style image...';
-                    await preprocessStyleImage(selectedStyle);
-                    currentStyleName = selectedStyle;
-                }
+                // Load initial active style
+                status.textContent = 'Preprocessing style image...';
+                activeStyleCanvas = await preprocessStyleImage(selectedStyle);
+                activeStyleName = selectedStyle;
 
                 status.textContent = 'Model loaded. Processing...';
             } catch (err) {
@@ -451,6 +474,49 @@
                 styleSelect.disabled = false;
                 isCanvasReady = false;
             }
+        }
+
+        // Background style preparation
+        async function prepareBackgroundStyle(styleName) {
+            if (isPreparingStyle || styleName === activeStyleName) return;
+
+            isPreparingStyle = true;
+            backgroundStyleName = styleName;
+
+            try {
+                const displayName = styleName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                status.textContent = `Style transfer active. Preparing ${displayName}...`;
+                backgroundStyleCanvas = await preprocessStyleImage(styleName);
+
+                // Signal that we're ready to switch
+                pendingStyleSwitch = true;
+                status.textContent = `Style transfer active. ${displayName} ready - switching on next frame.`;
+            } catch (err) {
+                console.error('Error preparing background style:', err);
+                backgroundStyleCanvas = null;
+                backgroundStyleName = null;
+                status.textContent = 'Style transfer active. Error preparing new style.';
+            } finally {
+                isPreparingStyle = false;
+            }
+        }
+
+        // Perform atomic style switch
+        function performStyleSwitch() {
+            if (!pendingStyleSwitch || !backgroundStyleCanvas) return;
+
+            // Keep canvas visible - just switch the style data
+            // The canvas will show the old frame until the new one is rendered
+            activeStyleCanvas = backgroundStyleCanvas;
+            activeStyleName = backgroundStyleName;
+
+            // Clear background preparation
+            backgroundStyleCanvas = null;
+            backgroundStyleName = null;
+            pendingStyleSwitch = false;
+
+            const displayName = activeStyleName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+            status.textContent = `Style transfer active. Now using ${displayName}.`;
         }
 
         // Preprocess and cache the style image
@@ -470,14 +536,16 @@
             const resizedStyleTensor = tf.image.resizeBilinear(styleImageTensor, [256, 256]);
 
             // Create cached canvas
-            cachedStyleCanvas = document.createElement('canvas');
-            cachedStyleCanvas.width = 256;
-            cachedStyleCanvas.height = 256;
-            await tf.browser.toPixels(resizedStyleTensor, cachedStyleCanvas);
+            const styleCanvas = document.createElement('canvas');
+            styleCanvas.width = 256;
+            styleCanvas.height = 256;
+            await tf.browser.toPixels(resizedStyleTensor, styleCanvas);
 
             // Clean up tensors
             styleImageTensor.dispose();
             resizedStyleTensor.dispose();
+
+            return styleCanvas;
         }
 
         // Update FPS counter
@@ -529,6 +597,11 @@
             const frameStartTime = performance.now();
 
             try {
+                // Check if we need to perform a style switch
+                if (pendingStyleSwitch) {
+                    performStyleSwitch();
+                }
+
                 // Get selected resolution
                 const resolution = parseInt(resolutionSelect.value);
 
@@ -541,8 +614,8 @@
                 // Draw and scale video frame
                 tempCtx.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
 
-                // Apply style transfer using cached style image
-                const stylized = await styleNet.stylize(tempCanvas, cachedStyleCanvas);
+                // Apply style transfer using active style image
+                const stylized = await styleNet.stylize(tempCanvas, activeStyleCanvas);
 
                 // Convert result to drawable canvas
                 let drawableResult;
