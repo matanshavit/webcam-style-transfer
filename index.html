@@ -413,8 +413,7 @@
                 canvas.style.display = 'none';
                 videoTitle.textContent = 'Webcam Video';
                 status.textContent = 'Style transfer stopped.';
-                fpsDisplay.textContent = 'FPS: --';
-                latencyDisplay.textContent = 'Latency: --';
+                resetCounters();
 
                 // Clean up style resources
                 activeStyleCanvas = null;
@@ -423,6 +422,7 @@
                 backgroundStyleName = null;
                 isPreparingStyle = false;
                 pendingStyleSwitch = false;
+                isCanvasReady = false;
             } else {
                 // Start processing
                 isProcessing = true;
