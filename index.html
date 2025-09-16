@@ -422,6 +422,12 @@
                 applyStyleBtn.textContent = 'Apply Style';
                 applyStyleBtn.classList.remove('stop');
                 styleSelect.disabled = false;
+
+                // Re-enable the "Add Custom Style..." option when stopped
+                const addCustomOption = styleSelect.querySelector('option[value="add_custom"]');
+                if (addCustomOption) {
+                    addCustomOption.disabled = false;
+                }
                 // Switch back to original video
                 video.style.visibility = 'visible';
                 canvas.style.display = 'none';
@@ -443,6 +449,13 @@
                 applyStyleBtn.textContent = 'Stop';
                 applyStyleBtn.classList.add('stop');
                 isCanvasReady = false;
+
+                // Disable the "Add Custom Style..." option while processing
+                const addCustomOption = styleSelect.querySelector('option[value="add_custom"]');
+                if (addCustomOption) {
+                    addCustomOption.disabled = true;
+                }
+
                 await initializeStyleTransfer();
                 if (styleNet && activeStyleCanvas) {
                     // Hide video but don't show canvas yet - wait for first frame
@@ -487,6 +500,12 @@
                 applyStyleBtn.classList.remove('stop');
                 styleSelect.disabled = false;
                 isCanvasReady = false;
+
+                // Re-enable the "Add Custom Style..." option when error occurs
+                const addCustomOption = styleSelect.querySelector('option[value="add_custom"]');
+                if (addCustomOption) {
+                    addCustomOption.disabled = false;
+                }
             }
         }
 
