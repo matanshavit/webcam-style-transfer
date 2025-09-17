@@ -33,34 +33,56 @@ const VideoDisplay = () => {
     if (!video || !video.videoWidth || !video.videoHeight) return
 
     const videoAspectRatio = video.videoWidth / video.videoHeight
+    const isVertical = videoAspectRatio < 1 // Height is greater than width
 
-    let maxHeight, maxWidthPercent
+    let maxHeight, maxWidth, maxWidthPercent
     if (window.innerWidth >= 1600) {
       maxHeight = 750
+      maxWidth = 1000
       maxWidthPercent = 0.7
     } else if (window.innerWidth >= 1200) {
       maxHeight = 600
+      maxWidth = 800
       maxWidthPercent = 0.8
     } else if (window.innerWidth <= 768) {
       maxHeight = 300
+      maxWidth = 600
       maxWidthPercent = 0.9
     } else {
       maxHeight = 450
+      maxWidth = 600
       maxWidthPercent = 0.9
     }
 
-    const containerHeight = Math.min(maxHeight, window.innerWidth * maxWidthPercent * 0.75)
-    const newWidth = Math.round(containerHeight * videoAspectRatio)
+    let newWidth, newHeight
+
+    if (isVertical) {
+      // For vertical video: maintain width, let height grow
+      const maxContainerWidth = Math.min(maxWidth, window.innerWidth * maxWidthPercent)
+      newWidth = maxContainerWidth
+      newHeight = Math.round(newWidth / videoAspectRatio)
+
+      // Still cap the height to prevent it from being too tall
+      if (newHeight > maxHeight * 1.5) {
+        newHeight = maxHeight * 1.5
+        newWidth = Math.round(newHeight * videoAspectRatio)
+      }
+    } else {
+      // For horizontal video: maintain height, adjust width
+      const containerHeight = Math.min(maxHeight, window.innerWidth * maxWidthPercent * 0.75)
+      newHeight = containerHeight
+      newWidth = Math.round(containerHeight * videoAspectRatio)
+    }
 
     const container = videoRef.current?.parentElement
     if (container) {
       container.style.width = `${newWidth}px`
-      container.style.height = `${containerHeight}px`
+      container.style.height = `${newHeight}px`
     }
 
     if (canvasRef.current) {
       canvasRef.current.width = newWidth
-      canvasRef.current.height = containerHeight
+      canvasRef.current.height = newHeight
     }
   }
 
