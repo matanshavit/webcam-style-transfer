@@ -246,3 +246,27 @@ select {
         gap: 4px;
     }
 }
+
+.app-title {
+    font-size: 22px;
+    margin: 8px 0;
+    text-align: center;
+}
+
+.github-link {
+    font-size: 14px;
+    color: #4A90E2;
+    text-decoration: none;
+    transition: color 0.2s ease;
+    display: block;
+    text-align: center;
+    margin-top: 10px;
+}
+
+.github-link:hover {
+    color: #357ABD;
+}
+
+.github-link:active {
+    color: #2E5B8F;
+}

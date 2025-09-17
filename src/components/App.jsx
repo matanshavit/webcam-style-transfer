@@ -17,10 +17,18 @@ const App = () => {
 
   return (
     <div>
-      <h1 style={{ fontSize: '22px', margin: '8px 0' }}>Webcam Style Transfer</h1>
+      <h1 className="app-title">Webcam Style Transfer</h1>
       <VideoDisplay />
       <Controls />
       <StatusDisplay />
+      <a
+        href="https://github.com/matanshavit/webcam-style-transfer"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="github-link"
+      >
+        [github.com/matanshavit/webcam-style-transfer]
+      </a>
     </div>
   )
 }
